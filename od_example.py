@@ -17,13 +17,16 @@ from PIL import Image
 from utils import label_map_util
 from utils import visualization_utils as vis_util
 from sapiens_utils import Sapiens 
+import reg_total_people
+#from sapiens_utils import Sapiens.det_record
 
 elapsedTime = 0
 
 sapiens= Sapiens()
 
 # Define the video stream
-cap = cv2.VideoCapture("people_walking.mp4")  # Change only if you have more than one webcams
+video_source = "people-1.mp4"
+cap = cv2.VideoCapture(video_source)  # Change only if you have more than one webcams
 
 # What model to download.
 # Models can bee found here: https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/detection_model_zoo.md
@@ -78,51 +81,56 @@ i=0
 fpstot = 0.0
 
 # Detection
-with detection_graph.as_default():
-    with tf.Session(graph=detection_graph) as sess:
-        while True:
-            t1 = time.time()
-            # Read frame from camera
-            ret, image_np = cap.read()
-            # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
-            image_np_expanded = np.expand_dims(image_np, axis=0)
-            # Extract image tensor
-            image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
-            # Extract detection boxes
-            boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
-            # Extract detection scores
-            scores = detection_graph.get_tensor_by_name('detection_scores:0')
-            # Extract detection classes
-            classes = detection_graph.get_tensor_by_name('detection_classes:0')
-            # Extract number of detectionsd
-            num_detections = detection_graph.get_tensor_by_name(
-                'num_detections:0')
-            # Actual detection.
-            (boxes, scores, classes, num_detections) = sess.run(
-                [boxes, scores, classes, num_detections],
-                feed_dict={image_tensor: image_np_expanded})
+try:
+    with detection_graph.as_default():
+        with tf.Session(graph=detection_graph) as sess:
+            while True:
+                t1 = time.time()
+                # Read frame from camera
+                ret, image_np = cap.read()
+                # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+                image_np_expanded = np.expand_dims(image_np, axis=0)
+                # Extract image tensor
+                image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
+                # Extract detection boxes
+                boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
+                # Extract detection scores
+                scores = detection_graph.get_tensor_by_name('detection_scores:0')
+                # Extract detection classes
+                classes = detection_graph.get_tensor_by_name('detection_classes:0')
+                # Extract number of detectionsd
+                num_detections = detection_graph.get_tensor_by_name(
+                    'num_detections:0')
+                # Actual detection.
+                (boxes, scores, classes, num_detections) = sess.run(
+                    [boxes, scores, classes, num_detections],
+                    feed_dict={image_tensor: image_np_expanded})
+                ### Count detected people on current frame
+                sapiens.people_on_output_tensor(scores=scores, classes=classes,num_detections=num_detections,threshold=0.5)
 
-            sapiens.people_on_output_tensor(scores=scores, classes=classes,num_detections=num_detections,threshold=0.5)
+                # Visualization of the results of a detection.
+                vis_util.visualize_boxes_and_labels_on_image_array(
+                    image_np,
+                    np.squeeze(boxes),
+                    np.squeeze(classes).astype(np.int32),
+                    np.squeeze(scores),
+                    category_index,
+                    use_normalized_coordinates=True,
+                    line_thickness=8)
 
-            # Visualization of the results of a detection.
-            vis_util.visualize_boxes_and_labels_on_image_array(
-                image_np,
-                np.squeeze(boxes),
-                np.squeeze(classes).astype(np.int32),
-                np.squeeze(scores),
-                category_index,
-                use_normalized_coordinates=True,
-                line_thickness=8)
+                # Display output
+                cv2.imshow('object detection', cv2.resize(image_np, (800, 600)))
 
-            # Display output
-            cv2.imshow('object detection', cv2.resize(image_np, (800, 600)))
-
-            if cv2.waitKey(25) & 0xFF == ord('q'):
-                cv2.destroyAllWindows()
-                break
-            
-            elapsedTime = time.time() - t1
-            i+=1
-            if i < 200:
-                fpstot += 1/elapsedTime
-                print('fps promedio: ', fpstot/i)
+                if cv2.waitKey(25) & 0xFF == ord('q'):
+                    ### Plot number of people detected
+                    reg_total_people.plot_results(video_source)
+                    cv2.destroyAllWindows()
+                    break
+                
+                elapsedTime = time.time() - t1
+                i+=1
+                if i < 200:
+                    fpstot += 1/elapsedTime
+                    print('fps promedio: ', fpstot/i)
+except TypeError:
+    reg_total_people.plot_results(video_source)
