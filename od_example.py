@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 from PIL import Image
 from utils import label_map_util
 from utils import visualization_utils as vis_util
-from sapiens_utils import Sapiens 
+from sapiens_utils import Sapiens
 import reg_total_people
 #from sapiens_utils import Sapiens.det_record
 
@@ -25,7 +25,7 @@ elapsedTime = 0
 sapiens= Sapiens()
 
 # Define the video stream
-video_source = "people-1.mp4"
+video_source = "people_walking.mp4"
 cap = cv2.VideoCapture(video_source)  # Change only if you have more than one webcams
 
 # What model to download.
@@ -77,7 +77,7 @@ def load_image_into_numpy_array(image):
     return np.array(image.getdata()).reshape(
         (im_height, im_width, 3)).astype(np.uint8)
 
-i=0
+frames_processed = 1
 fpstot = 0.0
 
 # Detection
@@ -105,8 +105,13 @@ try:
                 (boxes, scores, classes, num_detections) = sess.run(
                     [boxes, scores, classes, num_detections],
                     feed_dict={image_tensor: image_np_expanded})
+
                 ### Count detected people on current frame
-                sapiens.people_on_output_tensor(scores=scores, classes=classes,num_detections=num_detections,threshold=0.5)
+                sapiens.people_on_output_tensor(scores=scores,
+                                                classes=classes,
+                                                num_detections=num_detections,
+                                                threshold=0.5,
+                                                frames_processed=frames_processed)
 
                 # Visualization of the results of a detection.
                 vis_util.visualize_boxes_and_labels_on_image_array(
@@ -126,11 +131,11 @@ try:
                     reg_total_people.plot_results(video_source)
                     cv2.destroyAllWindows()
                     break
-                
+
                 elapsedTime = time.time() - t1
-                i+=1
-                if i < 200:
+                if frames_processed < 200:
                     fpstot += 1/elapsedTime
-                    print('fps promedio: ', fpstot/i)
+                    print('fps promedio: ', fpstot/frames_processed)
+                frames_processed+=1
 except TypeError:
     reg_total_people.plot_results(video_source)
